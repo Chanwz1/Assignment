@@ -1,0 +1,282 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <regex>
+using namespace std;
+
+struct User {
+    string username;
+    string password;
+    string email;
+};
+
+struct Event {
+    string date;
+    string time;
+    string venue;
+};
+
+const string USER_FILE = "users.txt";
+const string ADMIN_FILE = "admin.txt";
+const string EVENT_FILE = "events.txt";
+
+const int MAX_USERS = 100;
+const int MAX_EVENTS = 100;
+
+void mainMenu();
+void userMenu();
+void adminMenu();
+void registerUser();
+bool loginUser(string role);
+bool isValidEmail(string email);
+bool emailExists(string email);
+bool usernameExists(string username);
+void registerEvent();
+void viewEvents();
+void setupAdmin();
+
+int main() {
+    setupAdmin();
+
+    string choice;
+    do {
+        mainMenu();
+        cout << "Enter your choice: ";
+        getline(cin, choice);
+
+        if (choice == "1") {
+            registerUser();
+        }
+        else if (choice == "2") {
+            cout << "\nLogin as:\n";
+            cout << "1. User\n";
+            cout << "2. Admin\n";
+            cout << "Choice: ";
+            string roleChoice;
+            getline(cin, roleChoice);
+
+            bool success = false;
+            int attempts = 0;
+            while (!success && attempts < 3) {
+                if (roleChoice == "1") {
+                    success = loginUser("user");
+                    if (success) userMenu();
+                }
+                else if (roleChoice == "2") {
+                    success = loginUser("admin");
+                    if (success) adminMenu();
+                }
+                else {
+                    cout << "Invalid choice.\n";
+                    break;
+                }
+                if (!success) {
+                    cout << "Login failed. Try again.\n";
+                    attempts++;
+                }
+            }
+        }
+        else if (choice == "3") {
+            cout << "Exiting program...\n";
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
+
+    } while (choice != "3");
+
+    return 0;
+}
+
+//Menu 
+void mainMenu() {
+    cout << "\n=== MAIN MENU ===\n";
+    cout << "1. Register\n";
+    cout << "2. Login\n";
+    cout << "3. Exit\n";
+}
+
+void userMenu() {
+    string choice;
+    do {
+        cout << "\n=== USER MENU ===\n";
+        cout << "1. View Events\n";
+        cout << "2. Logout\n";
+        cout << "Choice: ";
+        getline(cin, choice);
+
+        if (choice == "1") {
+            viewEvents();
+        }
+        else if (choice == "2") {
+            cout << "Logging out...\n";
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
+    } while (choice != "2");
+}
+
+void adminMenu() {
+    string choice;
+    do {
+        cout << "\n=== ADMIN MENU ===\n";
+        cout << "1. Register New Event\n";
+        cout << "2. View Events\n";
+        cout << "3. Logout\n";
+        cout << "Choice: ";
+        getline(cin, choice);
+
+        if (choice == "1") {
+            registerEvent();
+        }
+        else if (choice == "2") {
+            viewEvents();
+        }
+        else if (choice == "3") {
+            cout << "Logging out...\n";
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
+    } while (choice != "3");
+}
+
+// User Registration and Login
+void registerUser() {
+    User u;
+    cout << "\n--- REGISTER USER ---\n";
+    cout << "Enter username: ";
+    getline(cin, u.username);
+
+    if (usernameExists(u.username)) {
+        cout << "Username already exists.\n";
+        return;
+    }
+
+    cout << "Enter password: ";
+    getline(cin, u.password);
+
+    cout << "Enter email: ";
+    getline(cin, u.email);
+
+    if (!isValidEmail(u.email)) {
+        cout << "Invalid email format.\n";
+        return;
+    }
+    if (emailExists(u.email)) {
+        cout << "Email already registered.\n";
+        return;
+    }
+
+    ofstream out(USER_FILE, ios::app);
+    out << u.username << " " << u.password << " " << u.email << endl;
+    out.close();
+
+    cout << "Registration successful!\n";
+}
+
+bool loginUser(string role) {
+    string fileName = (role == "admin") ? ADMIN_FILE : USER_FILE;
+    string email, password;
+
+    cout << "\n--- " << role << " LOGIN ---\n";
+    cout << "Email: ";
+    getline(cin, email);
+    cout << "Password: ";
+    getline(cin, password);
+
+    ifstream in(fileName);
+    string uname, pass, mail;
+    while (in >> uname >> pass >> mail) {
+        if (mail == email && pass == password) {
+            cout << role << " login successful!\n";
+            return true;
+        }
+    }
+    return false;
+}
+
+// Validation 
+bool isValidEmail(string email) {
+    // Use regex for strong validation
+    const regex pattern(R"(^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$)");
+    return regex_match(email, pattern);
+}
+
+bool emailExists(string email) {
+    ifstream in(USER_FILE);
+    string uname, pass, mail;
+    while (in >> uname >> pass >> mail) {
+        if (mail == email) return true;
+    }
+    return false;
+}
+
+bool usernameExists(string username) {
+    ifstream in(USER_FILE);
+    string uname, pass, mail;
+    while (in >> uname >> pass >> mail) {
+        if (uname == username) return true;
+    }
+    return false;
+}
+
+// Create Event 
+void registerEvent() {
+    Event e;
+    cout << "\n--- REGISTER EVENT ---\n";
+    cout << "Enter event date (DD/MM/YYYY): ";
+    getline(cin, e.date);
+    cout << "Enter event time (HH:MM): ";
+    getline(cin, e.time);
+    cout << "Enter venue: ";
+    getline(cin, e.venue);
+
+    ofstream out(EVENT_FILE, ios::app);
+    out << e.date << " " << e.time << " " << e.venue << endl;
+    out.close();
+
+    cout << "Event registered successfully!\n";
+}
+
+void viewEvents() {
+    ifstream in(EVENT_FILE);
+    if (!in) {
+        cout << "No events found.\n";
+        return;
+    }
+
+    Event events[MAX_EVENTS];
+    int count = 0;
+
+    while (in >> events[count].date >> events[count].time) {
+        getline(in, events[count].venue);
+        count++;
+        if (count >= MAX_EVENTS) break;
+    }
+    in.close();
+
+    if (count == 0) {
+        cout << "No events available.\n";
+    }
+    else {
+        cout << "\n--- EVENTS LIST ---\n";
+        for (int i = 0; i < count; i++) {
+            cout << i + 1 << ". Date: " << events[i].date
+                << " | Time: " << events[i].time
+                << " | Venue:" << events[i].venue << "\n";
+        }
+    }
+}
+
+// create default admin 
+void setupAdmin() {
+    ifstream file(ADMIN_FILE);
+    if (!file.good()) {
+        ofstream out(ADMIN_FILE);
+        out << "admin admin123 admin@example.com\n";
+        out.close();
+        cout << "Default admin created (Email: admin@example.com, Password: admin123)\n";
+    }
+}
