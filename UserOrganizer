@@ -1,0 +1,321 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <regex>
+using namespace std;
+
+struct User {
+    string username;
+    string password;
+    string email;
+};
+
+struct Event {
+    string date;
+    string time;
+    string venue;
+};
+
+const string USER_FILE = "users.txt";
+const string ORGANISER_FILE = "organisers.txt";
+const string EVENT_FILE = "events.txt";
+
+void mainMenu();
+void userMenu();
+void organiserMenu();
+void registerUser(string role);
+bool loginUser(string role);
+bool isValidEmail(string email);
+bool emailExists(string email, string role);
+bool usernameExists(string username, string role);
+bool isValidDate(int day, int month, int year);
+void registerEvent();
+
+string getNonEmptyInput(const string& prompt) {
+    string input;
+    do {
+        cout << prompt;
+        getline(cin, input);
+        if (input.empty()) {
+            cout << "Input cannot be empty. Please try again.\n";
+        }
+    } while (input.empty());
+    return input;
+}
+
+int main() {
+    string choice;
+    do {
+        mainMenu();
+        choice = getNonEmptyInput("Enter your choice: ");
+
+        if (choice == "1") {
+            cout << "\nRegister as:\n";
+            cout << "1. User\n";
+            cout << "2. Organiser\n";
+            string roleChoice = getNonEmptyInput("Choice: ");
+
+            if (roleChoice == "1") registerUser("user");
+            else if (roleChoice == "2") registerUser("organiser");
+            else cout << "Invalid choice.\n";
+        }
+        else if (choice == "2") {
+            cout << "\nLogin as:\n";
+            cout << "1. User\n";
+            cout << "2. Organiser\n";
+            string roleChoice = getNonEmptyInput("Choice: ");
+
+            bool success = false;
+            int attempts = 0;
+            while (!success && attempts < 3) {
+                if (roleChoice == "1") {
+                    success = loginUser("user");
+                    if (success) userMenu();
+                }
+                else if (roleChoice == "2") {
+                    success = loginUser("organiser");
+                    if (success) organiserMenu();
+                }
+                else {
+                    cout << "Invalid choice.\n";
+                    break;
+                }
+                if (!success) {
+                    cout << "Login failed. Try again.\n";
+                    attempts++;
+                }
+            }
+        }
+        else if (choice == "3") {
+            cout << "Exiting program...\n";
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
+
+    } while (choice != "3");
+
+    return 0;
+}
+
+void mainMenu() {
+    cout << "\n=== MAIN MENU ===\n";
+    cout << "1. Register\n";
+    cout << "2. Login\n";
+    cout << "3. Exit\n";
+}
+
+void userMenu() {
+    string choice;
+    do {
+        cout << "\n=== USER MENU ===\n";
+        cout << "1. Logout\n";
+        choice = getNonEmptyInput("Choice: ");
+
+        if (choice == "1") {
+            cout << "Logging out...\n";
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
+    } while (choice != "1");
+}
+
+void organiserMenu() {
+    string choice;
+    do {
+        cout << "\n=== ORGANISER MENU ===\n";
+        cout << "1. Register New Event (Booking)\n";
+        cout << "2. Logout\n";
+        choice = getNonEmptyInput("Choice: ");
+
+        if (choice == "1") {
+            registerEvent();
+        }
+        else if (choice == "2") {
+            cout << "Logging out...\n";
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
+    } while (choice != "2");
+}
+
+void registerUser(string role) {
+    User u;
+    cout << "\n--- REGISTER " << role << " ---\n";
+
+    u.username = getNonEmptyInput("Enter username: ");
+    if (usernameExists(u.username, role)) {
+        cout << "Username already exists.\n";
+        return;
+    }
+
+    u.password = getNonEmptyInput("Enter password: ");
+    u.email = getNonEmptyInput("Enter email: ");
+
+    if (!isValidEmail(u.email)) {
+        cout << "Invalid email format.\n";
+        return;
+    }
+    if (emailExists(u.email, role)) {
+        cout << "Email already registered.\n";
+        return;
+    }
+
+    string fileName = (role == "organiser") ? ORGANISER_FILE : USER_FILE;
+    ofstream outFile;
+    outFile.open(fileName.c_str(), ios::app);
+
+    if (!outFile) {
+        cout << "Error opening file for writing.\n";
+        return;
+    }
+
+    outFile << u.username << " " << u.password << " " << u.email << endl;
+    outFile.close();
+
+    cout << "Registration successful!\n";
+}
+
+bool loginUser(string role) {
+    string fileName = (role == "organiser") ? ORGANISER_FILE : USER_FILE;
+    string email, password;
+
+    cout << "\n--- " << role << " LOGIN ---\n";
+    email = getNonEmptyInput("Email: ");
+    password = getNonEmptyInput("Password: ");
+
+    ifstream inFile;
+    inFile.open(fileName.c_str());
+
+    if (!inFile) {
+        cout << "Error opening file for reading.\n";
+        return false;
+    }
+
+    string uname, pass, mail;
+    bool found = false;
+
+    inFile >> uname >> pass >> mail;
+    while (!inFile.eof()) {
+        if (mail == email && pass == password) {
+            cout << role << " login successful!\n";
+            found = true;
+            break;
+        }
+        inFile >> uname >> pass >> mail;
+    }
+
+    inFile.close();
+    return found;
+}
+
+bool isValidEmail(string email) {
+    const regex pattern(R"(^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$)");
+    return regex_match(email, pattern);
+}
+
+bool emailExists(string email, string role) {
+    string fileName = (role == "organiser") ? ORGANISER_FILE : USER_FILE;
+    ifstream inFile;
+    inFile.open(fileName.c_str());
+
+    if (!inFile) return false;
+
+    string uname, pass, mail;
+    inFile >> uname >> pass >> mail;
+    while (!inFile.eof()) {
+        if (mail == email) {
+            inFile.close();
+            return true;
+        }
+        inFile >> uname >> pass >> mail;
+    }
+
+    inFile.close();
+    return false;
+}
+
+bool usernameExists(string username, string role) {
+    string fileName = (role == "organiser") ? ORGANISER_FILE : USER_FILE;
+    ifstream inFile;
+    inFile.open(fileName.c_str());
+
+    if (!inFile) return false;
+
+    string uname, pass, mail;
+    inFile >> uname >> pass >> mail;
+    while (!inFile.eof()) {
+        if (uname == username) {
+            inFile.close();
+            return true;
+        }
+        inFile >> uname >> pass >> mail;
+    }
+
+    inFile.close();
+    return false;
+}
+
+bool isValidDate(int day, int month, int year) {
+    if (year < 1900 || year > 2100) return false;
+    if (month < 1 || month > 12) return false;
+
+    // For Leap year 
+    bool isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+
+    if (month == 1 || month == 3 || month == 5 || month == 7 ||
+        month == 8 || month == 10 || month == 12) {
+        if (day < 1 || day > 31) return false;
+    }
+    else if (month == 4 || month == 6 || month == 9 || month == 11) {
+        if (day < 1 || day > 30) return false;
+    }
+    else if (month == 2) {
+        if (day < 1 || day >(isLeap ? 29 : 28)) return false;
+    }
+
+    return true;
+}
+
+void registerEvent() {
+    Event e;
+    int day, month, year;
+
+    cout << "\n--- REGISTER EVENT ---\n";
+
+    do {
+        cout << "Enter event day (DD): ";
+        cin >> day;
+        cout << "Enter event month (MM): ";
+        cin >> month;
+        cout << "Enter event year (YYYY): ";
+        cin >> year;
+        cin.ignore();
+
+        if (!isValidDate(day, month, year)) {
+            cout << "Invalid date. Please try again.\n";
+        }
+    } while (!isValidDate(day, month, year));
+
+    e.date = (day < 10 ? "0" : "") + to_string(day) + "/" +
+        (month < 10 ? "0" : "") + to_string(month) + "/" +
+        to_string(year);
+
+    e.time = getNonEmptyInput("Enter event time (HH:MM): ");
+    e.venue = getNonEmptyInput("Enter venue: ");
+
+    ofstream outFile;
+    outFile.open(EVENT_FILE.c_str(), ios::app);
+
+    if (!outFile) {
+        cout << "Error opening events file.\n";
+        return;
+    }
+
+    outFile << e.date << " " << e.time << " " << e.venue << endl;
+    outFile.close();
+
+    cout << "Event registered successfully!\n";
+}
